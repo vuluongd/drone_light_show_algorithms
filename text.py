@@ -1,94 +1,77 @@
-import os
-import pandas as pd
-import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.optimize import linear_sum_assignment
+import math
+import os
+import csv
+CSV_OUTPUT = "sae_uet_surface.csv"
 
-file_path_2 = "~/drone_light_show_algorithm/formation3.xlsx"
-xls = pd.ExcelFile(os.path.expanduser(file_path_2))
-start_points_df = xls.parse("Start_Points")
-end_points_df = xls.parse("End_Points")
-start_points = list(zip(start_points_df["x"], start_points_df["y"], start_points_df["z"]))
-end_points = list(zip(end_points_df["x"], end_points_df["y"], end_points_df["z"]))
 
-def euclidean_distance(a, b):
-    return np.linalg.norm(np.array(a) - np.array(b))
+TEXT = "Vu Luong"
+FONT_SIZE = 169
+IMG_SIZE = (1600, 400)
+MIN_DISTANCE = 5.1
+NUM_DRONES = 600
+FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+PLY_OUTPUT = "sae_uet_surface.ply"
+# ==============================
 
-def hungarian_algorithm(start_points, end_points):
-    n = len(start_points)
-    cost_matrix = np.zeros((n, n))
-    for i in range(n):
-        for j in range(n):
-            cost_matrix[i, j] = euclidean_distance(start_points[i], end_points[j])
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    for i, j in zip(row_ind, col_ind):
-        if euclidean_distance(start_points[i], end_points[j]) < 1e-6:
-            raise ValueError("Invalid assignment: Start and end points coincide")
-    return list(zip(row_ind, col_ind))
+# 1. Tạo ảnh chữ
+img = Image.new('L', IMG_SIZE, color=0)
+draw = ImageDraw.Draw(img)
+font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
+bbox = draw.textbbox((0, 0), TEXT, font=font)
+text_width, text_height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+text_pos = ((IMG_SIZE[0] - text_width) // 2, (IMG_SIZE[1] - text_height) // 2)
+draw.text(text_pos, TEXT, fill=255, font=font)
 
-def full_algorithm(start_points, end_points):
-    n = len(start_points)
-    min_safe_distance = 2.5
-    start_violations = [(i, j) for i in range(n) for j in range(i + 1, n)
-                        if euclidean_distance(start_points[i], start_points[j]) < min_safe_distance]
-    end_violations = [(i, j) for i in range(n) for j in range(i + 1, n)
-                      if euclidean_distance(end_points[i], end_points[j]) < min_safe_distance]
-    if start_violations or end_violations:
-        raise ValueError("Vi phạm khoảng cách an toàn tối thiểu 2.5m")
+# 2. Trích pixel trắng (màu chữ)
+pixels = img.load()
+white_pixels = [(x, y) for y in range(IMG_SIZE[1]) for x in range(IMG_SIZE[0]) if pixels[x, y] > 128]
 
-    assignments = hungarian_algorithm(start_points, end_points)
-    paths = []
-    for drone_idx, target_idx in assignments:
-        start = np.array(start_points[drone_idx])
-        end = np.array(end_points[target_idx])
-        paths.append((drone_idx, [start, end]))
-    return paths
+# 3. Lọc viền ngoài: điểm trắng có ít nhất 1 hàng xóm đen
+def is_edge(x, y):
+    for dx in [-1, 0, 1]:
+        for dy in [-1, 0, 1]:
+            if dx == 0 and dy == 0:
+                continue
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < IMG_SIZE[0] and 0 <= ny < IMG_SIZE[1]:
+                if pixels[nx, ny] < 128:
+                    return True
+    return False
 
-paths = full_algorithm(start_points, end_points)
+edge_points = [(x, y) for x, y in white_pixels if is_edge(x, y)]
+print(f"🧠 Tổng điểm viền chữ: {len(edge_points)}")
 
-selected = input("\nphan cong hungarian cua cac drone : ")
-selected_indices = [int(idx) for idx in selected.split() if idx.isdigit()]
+# 4. Scale về tọa độ thật (gốc ảnh ở giữa)
+x_center, y_center = IMG_SIZE[0] / 2, IMG_SIZE[1] / 2
+scaled_points = [((x - x_center), (y - y_center)) for x, y in edge_points]
 
-fig = plt.figure(figsize=(12, 8))
-ax = fig.add_subplot(111, projection='3d')
-colors = plt.cm.jet(np.linspace(0, 1, len(paths)))
+# 5. Chọn 600 điểm cách nhau > 3m
+selected = []
+for px, py in scaled_points:
+    too_close = any(math.hypot(px - x0, py - y0) < MIN_DISTANCE for x0, y0 in selected)
+    if not too_close:
+        selected.append((px, py))
+    if len(selected) >= NUM_DRONES:
+        break
 
-for i, (drone_idx, path) in enumerate(paths):
-    if drone_idx in selected_indices:
-        path = np.array(path)
-        ax.plot(path[:, 0], path[:, 1], path[:, 2], color=colors[i], label=f'Hungarian {drone_idx}')
-        ax.scatter(path[0, 0], path[0, 1], path[0, 2], color='green', marker='o', s=100)
-        ax.scatter(path[-1, 0], path[-1, 1], path[-1, 2], color='red', marker='x', s=100)
+if len(selected) < NUM_DRONES:
+    raise RuntimeError(f"Không đủ {NUM_DRONES} điểm biên với khoảng cách tối thiểu {MIN_DISTANCE}m. Chỉ có {len(selected)} điểm.")
 
-file_path = "drone_paths_output_1.xlsx"
-xls = pd.ExcelFile(file_path)
-
-chosen_sheets = input("\nNhập sheet: ").split()
-chosen_sheets = [sheet.strip() for sheet in chosen_sheets if sheet.strip() in xls.sheet_names]
-
-trajectories = {}
-for sheet in chosen_sheets:
-    df = xls.parse(sheet)
-    trajectories[sheet] = {
-        'x': df['X'].values,
-        'y': df['Y'].values,
-        'z': df['Z'].values
-    }
-
-colors_extra = ['r', 'g', 'b', 'm', 'c', 'orange', 'purple']
-for i, sheet in enumerate(chosen_sheets):
-    color = colors_extra[i % len(colors_extra)]
-    x = trajectories[sheet]['x']
-    y = trajectories[sheet]['y']
-    z = trajectories[sheet]['z']
-    ax.plot(x, y, z, label=f"Trajectory {sheet}", color=color, linestyle='--')
-    ax.scatter([x[-1]], [y[-1]], [z[-1]], color=color, marker='o', s=80)
-
-ax.set_xlabel("X")
-ax.set_ylabel("Y")
-ax.set_zlabel("Z")
-ax.grid(True)
-ax.legend()
+# 6. Hiển thị
+xs, ys = zip(*selected)
+plt.figure(figsize=(12, 5))
+plt.scatter(xs, ys, s=10, c='red')
+plt.gca().invert_yaxis()
+plt.axis('equal')
 plt.tight_layout()
 plt.show()
+
+with open(CSV_OUTPUT, "w", newline='') as f:
+    writer = csv.writer(f)
+    writer.writerow(["Drone_ID", "X (m)", "Y (m)", "Z (m)"])
+    for idx, (x, y) in enumerate(selected, 1):
+        writer.writerow([idx, round(x, 2), round(y, 2), 0.0])
+
+print(f"✅  Đã lưu file CSV thành công: {CSV_OUTPUT}")
