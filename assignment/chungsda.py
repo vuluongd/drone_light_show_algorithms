@@ -73,7 +73,7 @@ plt.suptitle("Hungarian Algorithm - Drone Distance Assignments qua các cảnh",
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 plt.show()
 
-print("\n📊 Thống kê tổng kết:")
+print("\Thống kê tổng kết:")
 for i in range(3):
     print(f"Scene {i+1} → Scene {i+2}: Tổng distance = {total_distances[i]:.2f}")
 print(f"Tổng distance tất cả scenes: {sum(total_distances):.2f}")
