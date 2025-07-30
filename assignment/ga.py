@@ -31,9 +31,6 @@ def hungarian_algorithm(start_points, end_points):
         if euclidean_distance(start_points[i], end_points[j]) < 1e-6:
             coinciding_pairs.append((i, j))
     
-    if coinciding_pairs:
-        print(f"⚠️  Phát hiện {len(coinciding_pairs)} cặp điểm trùng nhau - sẽ được xử lý tự động")
-    
     total_cost = cost_matrix[row_ind, col_ind].sum()
     distances = [cost_matrix[i, j] for i, j in zip(row_ind, col_ind)]
     std_cost = np.std(distances)
@@ -181,9 +178,6 @@ ax_total.grid(True)
 plt.suptitle("Genetic Algorithm - Drone Distance Assignments qua các cảnh", fontsize=14)
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 plt.show()
-
-# === In thông tin tổng kết ===
-print("\n📊 Thống kê tổng kết:")
 for i in range(3):
     print(f"Scene {i+1} → Scene {i+2}: Tổng distance = {total_distances[i]:.2f}")
 print(f"Tổng distance tất cả scenes: {sum(total_distances):.2f}")
