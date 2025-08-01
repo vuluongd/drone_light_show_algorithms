@@ -5,12 +5,12 @@ from scipy.optimize import linear_sum_assignment
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
-file_path = "~/drone_light_show_algorithm/formation4.xlsx"
+file_path = "~/drone_light_show_algorithm/formation/formation4.xlsx"
 
 
 xls = pd.ExcelFile(file_path)
-start_points_df = xls.parse("Start_Points")
-end_points_df = xls.parse("End_Points")
+start_points_df = xls.parse("scene_1")
+end_points_df = xls.parse("scene_2")
 
 start_points = list(zip(start_points_df["x"], start_points_df["y"], start_points_df["z"]))
 end_points = list(zip(end_points_df["x"], end_points_df["y"], end_points_df["z"]))
@@ -76,13 +76,6 @@ class APFPlanner:
             path.append(new_pos.copy())
             current_pos = new_pos
         return path
-
-def is_between(drone_pos, target_pos, other_drone_pos):
-    vec_drone_to_other = np.array(other_drone_pos) - np.array(drone_pos)
-    vec_drone_to_target = np.array(target_pos) - np.array(drone_pos)
-    dot_product = np.dot(vec_drone_to_other, vec_drone_to_target)
-    return dot_product > 0
-
 def target_exchange(current_positions, targets, assignments, paths, exchange_count):
     new_assignments = assignments.copy()
     exchanged = False
