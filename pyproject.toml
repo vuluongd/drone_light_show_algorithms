@@ -1,7 +1,7 @@
 [project]
 name = "drone-light-show-algorithms"
 version = "0.1.0"
-description = "Algorithms for drone light shows"
+description = "Algorithms for drone light shows: assignment, apf, local search"
 authors = [{ name = "Vu Luong", email = "vul45845@gmail.com" }]
 requires-python = ">=3.8"
 dependencies = [
