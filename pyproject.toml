@@ -1,0 +1,16 @@
+[project]
+name = "drone-light-show-algorithms"
+version = "0.1.0"
+description = "Algorithms for drone light shows"
+authors = [{ name = "Vu Luong", email = "vul45845@gmail.com" }]
+requires-python = ">=3.8"
+dependencies = [
+  "numpy",
+  "matplotlib",
+  "scipy"
+  "pandas"
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
